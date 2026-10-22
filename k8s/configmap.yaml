@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: collabcode
+data:
+  REDIS_URL: redis://redis:6379
+  EXPRESS_PORT: "3000"
+  WEBSOCKET_PORT: "5000"

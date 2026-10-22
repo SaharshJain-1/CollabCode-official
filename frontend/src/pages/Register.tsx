@@ -1,0 +1,165 @@
+﻿import { useEffect, useState } from 'react';
+import { useRecoilState } from 'recoil';
+import { userAtom } from '../atoms/userAtom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { socketAtom } from '../atoms/socketAtom';
+import { WS_BASE_URL } from '../Globle';
+
+const Register = () => {
+    const [name, setName] = useState<string>("");
+    const [roomId, setRoomId] = useState<string>("");
+
+    const parms = useParams();
+    const [user, setUser] = useRecoilState(userAtom);
+    const [socket, setSocket] = useRecoilState<WebSocket | null>(socketAtom);
+
+    const [loading, setLoading] = useState<boolean>(false);
+
+    const navigate = useNavigate();
+
+    const generateId = () => {
+        const id = Math.floor(Math.random() * 100000);
+        return id.toString();
+    }
+
+    const initializeSocket = () => {
+        setLoading(true);
+        let GeneratedId = "";
+        if (user.id == "") {
+            GeneratedId = generateId();
+            setUser({
+                id: GeneratedId,
+                name: name,
+                roomId: ""
+            });
+        }
+
+        if (!socket || socket.readyState === WebSocket.CLOSED) {
+            const u = {
+                id: user.id == "" ? GeneratedId : user.id,
+                name: name
+            }
+            if(name == "") {
+                alert("Please enter a name to continue");
+                setLoading(false);
+                return;
+            }
+            const ws = new WebSocket(`${WS_BASE_URL}?roomId=${roomId}&id=${u.id}&name=${u.name}`);
+
+            setSocket(ws);
+
+            ws.onopen = () => {
+                console.log("Connected to WebSocket");
+            };
+
+            ws.onopen = () => {
+                console.log("Connected to WebSocket");
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type == "roomId") {
+                    setRoomId(data.roomId);
+                    console.log("Room ID : ", data.roomId);
+                    setUser({
+                        id: user.id == "" ? GeneratedId : user.id,
+                        name: name,
+                        roomId: data.roomId
+                    });
+
+                    setLoading(false);
+                    const msg = data.isNewRoom
+                      ? `Room created! Your room ID is: ${data.roomId}`
+                      : `Joined room: ${data.roomId}`;
+                    alert(msg);
+                    navigate("/code/" + data.roomId);
+                }
+            };
+            ws.onclose = () => {
+                console.log("WebSocket connection closed from register page");
+                setLoading(false);
+            };
+
+        }
+        else {
+
+            setLoading(false);
+        }
+    }
+
+    const handleNewRoom = () => {
+        if (!loading)
+            initializeSocket();
+
+    }
+
+    const handleJoinRoom = () => {
+        if (roomId != "" && !loading) {
+
+            initializeSocket();
+
+        }
+        else {
+            alert("Please enter a room ID to join a room");
+        }
+
+    }
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter" && !loading) {
+
+            if (roomId.trim() !== "") {
+                handleJoinRoom();
+            } else {
+                handleNewRoom();
+            }
+        }
+    }
+
+    useEffect(() => {
+        setRoomId(parms.roomId || "");
+    }, []);
+
+    return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
+            <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
+                <h1 className="text-3xl font-bold text-center text-blue-400 mb-6">Register</h1>
+
+                <input
+                    type="text"
+                    placeholder="Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="w-full p-3 bg-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mb-4"
+                />
+
+                <input
+                    type="text"
+                    placeholder="Room ID (Optional)"
+                    value={roomId}
+                    onChange={(e) => setRoomId(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="w-full p-3 bg-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mb-6"
+                />
+
+                <button
+                    disabled={loading}
+                    onClick={handleNewRoom}
+                    className="w-full py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-semibold shadow-md hover:shadow-lg transition-transform duration-300 transform hover:scale-105"
+                >
+                    Create New Room
+                </button>
+                <button
+                    disabled={loading}
+                    onClick={handleJoinRoom}
+                    className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-semibold shadow-md hover:shadow-lg transition-transform duration-300 transform hover:scale-105 mt-4"
+                >
+                    Join Room
+                </button>
+            </div>
+        </div>
+    );
+};
+
+export default Register;
